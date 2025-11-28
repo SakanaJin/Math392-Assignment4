@@ -1,6 +1,5 @@
 from copy import deepcopy
 from math import sqrt
-from pprint import pprint
 
 TOLERANCE = 1e-3
 
