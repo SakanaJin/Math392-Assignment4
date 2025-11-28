@@ -1,4 +1,5 @@
 from copy import deepcopy
+from math import sqrt
 from pprint import pprint
 
 TOLERANCE = 1e-3
@@ -16,6 +17,61 @@ def identity(n: int) -> list[list[float]]:
     for i in range(n):
         I[i][i] = 1
     return I
+
+def is_close(A: list[list[float]], B: list[list[float]], *, tolerance=1e-6) -> bool:
+    n = len(A)
+    for i in range(n):
+        for j in range(n):
+            if abs(A[i][j] - B[i][j]) > tolerance:
+                return False
+    return True
+
+def transpose(A: list[list[float]]) -> list[list[float]]:
+    alpha = deepcopy(A)
+    n = len(alpha)
+    for i in range(n):
+        alpha[i] = [A[j][i] for j in range(n)]
+    return alpha
+
+def is_diagonally_dominant(A: list[list[float]]) -> bool:
+    n = len(A)
+    for i in range(n):
+        if abs(A[i][i]) < sum([abs(A[i][j]) for j in range(n) if j != i]):
+            return False
+    return True
+
+def is_SPD(A: list[list[float]]) -> bool:
+    n = len(A)
+    if not A == transpose(A):
+        return False
+    L = [[0 for _ in range(n)] for _ in range(n)]
+    # cholesky check
+    try:
+        for i in range(n):
+            L[i][i] = sqrt(A[i][i] - sum([L[i][k]**2 for k in range(i)]))
+            for j in range(i+1, n):
+                L[j][i] = (A[i][j] - sum([L[i][k] * L[j][k] for k in range(i)])) / L[i][i]
+        if not is_close(A, matmul(L, transpose(L))):
+            return False
+        else: 
+            return True
+    except:
+        return False
+    
+def spectral_radius(A: list[list[float]]) -> float:
+    n = len(A)
+    L = [[0 for _ in range(n)] for _ in range(n)]
+    U = [[0 for _ in range(n)] for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if j <= i:
+                L[i][j] = A[i][j]
+            else:
+                U[i][j] = A[i][j]
+    Linv = inverse(L)
+    Linv = [[-Linv[i][j] for j in range(n)] for i in range(n)]
+    Eigendiag = matmul(Linv, U)
+    return max([abs(Eigendiag[i][i]) for i in range(n)])
 
 def augment(A: list[list[float]], B: list[list[float]] | list[float]) -> list[list[float]]:
     if len(A) != len(B):
@@ -64,7 +120,7 @@ def Gauss_elim(A: list[list[float]], b: list[float]) -> list[float]:
     newb = [row[n] for row in AM]
     return backwards_sub(newb, U)
 
-def inverse(A: list[list[float]], b: list[float]) -> list[list[float]]:
+def inverse(A: list[list[float]]) -> list[list[float]]:
     n = len(A)
     AM = augment(A, identity(n))
     for i in range(n):
@@ -78,6 +134,10 @@ def inverse(A: list[list[float]], b: list[float]) -> list[list[float]]:
         rowdiv(AM, i, AM[i][i])
     rowdiv(AM, 0, AM[0][0])
     Ainv = [row[n:] for row in AM]
+    return Ainv
+
+def inverse_solve(A:list[list[float]], b: list[float]) -> list[float]:
+    Ainv = inverse(A)
     return matmul(Ainv, b)
 
 def PvecLU(A: list[list[float]]) -> tuple[list[int], list[list[float]], list[list[float]]]: #this was something I had already made, it's OKAY 
@@ -118,6 +178,15 @@ def PLUSolve(Pvec: list[int], L: list[list[float]], U: list[list[float]], b: lis
     b = apply_perm(Pvec, b)
     return b
 
+def will_Gauss_Seidell_Converge(A: list[list[float]]) -> bool:
+    if is_diagonally_dominant(A):
+        return True
+    if is_SPD(A):
+        return True
+    if spectral_radius(A) < 1:
+        return True
+    return False
+
 def Gauss_Seidell(A: list[list[float]], b: list[float], *, x0=None, max_iter=100) -> list[float]:
     n = len(A)
     if x0 is None:
@@ -150,5 +219,28 @@ if __name__ == "__main__":
 
     xtrue = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    x = Gauss_Seidell(A, b, max_iter=1000)
-    pprint(x)
+    # spd_test = [[4,12,-16], #should be true
+    #         [12,37,-43],
+    #         [-16,-43,98]]
+    
+    # spectral_test = [[1,2], [3,4]] #should be 1.5
+
+    GaussSol = Gauss_elim(A, b)
+    InverseSol = inverse_solve(A, b)
+    Pvec, L, U = PvecLU(A)
+    LUSol = PLUSolve(Pvec, L, U, b)
+    GSSol = None
+    if will_Gauss_Seidell_Converge(A):
+        try:
+            GSSol = Gauss_Seidell(A, b, max_iter=1000)
+        except ValueError as e:
+            print(e)
+    else:
+        print("Gauss-Seidell will not converge for matrix A")
+
+    print("xtrue =", ['{:.2f}'.format(num) for num in xtrue])
+    print("GaussSol =", ['{:.2f}'.format(num) for num in GaussSol])
+    print("InverseSol =", ['{:.2f}'.format(num) for num in InverseSol])
+    print("LUSol =", ['{:.2f}'.format(num) for num in LUSol])
+    if GSSol:
+        print("GSSol =", ['{:.2f}'.format(num) for num in GSSol])
