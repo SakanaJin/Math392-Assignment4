@@ -57,7 +57,35 @@ def is_SPD(A: list[list[float]]) -> bool:
     except:
         return False
     
-def spectral_radius(A: list[list[float]]) -> float:
+def qr_decompose(A: list[list[float]]) -> tuple[list[list[float]], list[list[float]]]:
+    '''Grandma Schmidt herself'''
+    n = len(A)
+    Q = [[0 for _ in range(n)] for _ in range(n)]
+    R = [[0 for _ in range(n)] for _ in range(n)]
+    V = [[A[i][j] for i in range(n)] for j in range(n)]
+    for j in range(n):
+        R[j][j] = sqrt(sum(V[j][i]**2 for i in range(n)))
+        if abs(R[j][j]) < 1e-12:
+            raise ValueError("Matrix is rank deficient")
+        for i in range(n):
+            Q[i][j] = V[j][i] / R[j][j]
+        for k in range(j+1, n):
+            R[j][k] = sum(Q[i][j] * V[k][i] for i in range(n))
+            for i in range(n):
+                V[k][i] -= R[j][k] * Q[i][j]
+    return Q, R
+
+def eigen_vals(A: list[list[float]], *, max_iter=100) -> list[float]:
+    alpha = deepcopy(A)
+    for _ in range(max_iter):
+        try:
+            Q, R = qr_decompose(alpha)
+            alpha = matmul(R, Q)
+        except ValueError:
+            break
+    return [alpha[i][i] for i in range(len(alpha))]
+    
+def spectral_radius_iteration(A: list[list[float]]) -> float:
     n = len(A)
     L = [[0 for _ in range(n)] for _ in range(n)]
     U = [[0 for _ in range(n)] for _ in range(n)]
@@ -69,8 +97,8 @@ def spectral_radius(A: list[list[float]]) -> float:
                 U[i][j] = A[i][j]
     Linv = inverse(L)
     Linv = [[-Linv[i][j] for j in range(n)] for i in range(n)]
-    Eigendiag = matmul(Linv, U)
-    return max([abs(Eigendiag[i][i]) for i in range(n)])
+    lambdas = eigen_vals(matmul(Linv, U))
+    return max([abs(lambdas[i]) for i in range(n)])
 
 def augment(A: list[list[float]], B: list[list[float]] | list[float]) -> list[list[float]]:
     if len(A) != len(B):
@@ -182,7 +210,7 @@ def will_Gauss_Seidell_Converge(A: list[list[float]]) -> bool:
         return True
     if is_SPD(A):
         return True
-    if spectral_radius(A) < 1:
+    if spectral_radius_iteration(A) < 1:
         return True
     return False
 
@@ -221,8 +249,10 @@ if __name__ == "__main__":
     # spd_test = [[4,12,-16], #should be true
     #         [12,37,-43],
     #         [-16,-43,98]]
+    # print(is_SPD(spd_test))
     
     # spectral_test = [[1,2], [3,4]] #should be 1.5
+    # print(spectral_radius_iteration(spectral_test))
 
     GaussSol = Gauss_elim(A, b)
     InverseSol = inverse_solve(A, b)
