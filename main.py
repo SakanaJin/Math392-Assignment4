@@ -214,7 +214,7 @@ def will_Gauss_Seidell_Converge(A: list[list[float]]) -> bool:
         return True
     return False
 
-def Gauss_Seidell(A: list[list[float]], b: list[float], *, x0=None, max_iter=100) -> list[float]:
+def Gauss_Seidel(A: list[list[float]], b: list[float], *, x0=None, max_iter=100) -> list[float]:
     n = len(A)
     if x0 is None:
         x = [0]*n
@@ -259,13 +259,12 @@ if __name__ == "__main__":
     Pvec, L, U = PvecLU(A)
     LUSol = PLUSolve(Pvec, L, U, b)
     GSSol = None
-    if will_Gauss_Seidell_Converge(A):
-        try:
-            GSSol = Gauss_Seidell(A, b, max_iter=1000)
-        except ValueError as e:
-            print(e)
-    else:
+    if not will_Gauss_Seidell_Converge(A):
         print("Gauss-Seidell will not converge for matrix A")
+    try:
+        GSSol = Gauss_Seidel(A, b)
+    except ValueError as e:
+        print("Gauss-Seidel: ", e)
 
     print("xtrue =", ['{:.2f}'.format(num) for num in xtrue])
     print("GaussSol =", ['{:.2f}'.format(num) for num in GaussSol])
